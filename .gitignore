@@ -1,3 +1,9 @@
+## MATLAB
+*.asv
+*.slxc
+slprj
+
+## C
 # Prerequisites
 *.d
 

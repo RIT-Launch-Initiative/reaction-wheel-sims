@@ -1,0 +1,56 @@
+clear; close all;
+
+sp = serialport("COM4", 115200);
+
+linespec = "%f\t%f\t%f\t%f\r\n";
+serial_data = {[], [], [], []};
+
+figure;
+stopbutton = uicontrol('Style', 'pushbutton', ...
+	'String', 'Stop', ...
+	'Callback', 'delete(gcbo)');
+
+while ishandle(stopbutton)
+	ln = readline(sp);
+	% fprintf("\r%s", ln);
+	dat = sscanf(ln, linespec);
+	if ( length(dat) == length(serial_data) )
+		for i = 1:length(dat);
+			serial_data{i}(end+1,1) = dat(i);
+		end
+	end
+end
+
+get_slope = @(ts) fitlm(ts.Time,ts.Data).Coefficients.Estimate(2);
+
+
+x_ts = timeseries(serial_data{2}, serial_data{1});
+y_ts = timeseries(serial_data{3}, serial_data{1});
+z_ts = timeseries(serial_data{4}, serial_data{1});
+
+fprintf("Bias: [%3.3f, %3.3f, %3.3f] [dps]\n", ...
+	mean(x_ts.Data), ...
+	mean(y_ts.Data), ...
+	mean(z_ts.Data));
+fprintf("RMS Noise: [%3.3f, %3.3f, %3.3f] [dps]\n", ...
+	var(x_ts.Data), ...
+	var(y_ts.Data), ...
+	var(z_ts.Data));
+fprintf("Drift rates: [%3.3f, %3.3f, %3.3f] [dps/min]\n", ...
+	get_slope(x_ts) * 60, ...
+	get_slope(y_ts) * 60, ...
+	get_slope(z_ts) * 60);
+
+
+xm_ts = timeseries(movmean(serial_data{2}, 200), serial_data{1});
+ym_ts = timeseries(movmean(serial_data{3}, 200), serial_data{1});
+zm_ts = timeseries(movmean(serial_data{4}, 200), serial_data{1});
+
+figure("name", "Output");
+overlay_ts("Angular rate [dps]", ...
+	struct("ts", x_ts, "leg", "X", "spec", ".r"), ...
+	struct("ts", y_ts, "leg", "Y", "spec", ".g"), ...
+	struct("ts", z_ts, "leg", "Z", "spec", ".m"), ...
+	struct("ts", xm_ts, "leg", "X (smoothed)", "spec", "-r"), ...
+	struct("ts", ym_ts, "leg", "Y (smoothed)", "spec", "-g"), ...
+	struct("ts", zm_ts, "leg", "Z (smoothed)", "spec", "-m"));
